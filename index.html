@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Road Rush — Endless Car Runner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --accent: #ff3c3c; --accent2: #ffb800; --ui-bg: rgba(10,10,20,0.88); }
+  body {
+    background: #0d0d1a; font-family: 'Barlow', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; overflow: hidden;
+  }
+  #wrapper { position: relative; width: 400px; height: 660px; }
+  canvas { display: block; border-radius: 18px; border: 2px solid rgba(255,255,255,0.07);
+    box-shadow: 0 0 80px rgba(255,60,60,0.12), 0 0 160px rgba(0,0,0,0.7); }
+  #hud {
+    position: absolute; top: 12px; left: 12px; right: 12px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; gap: 6px;
+  }
+  .hud-box {
+    background: var(--ui-bg); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 10px; padding: 5px 12px; color: #fff;
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+    letter-spacing: 1px; display: flex; flex-direction: column;
+    align-items: center; line-height: 1; min-width: 56px;
+  }
+  .hud-label {
+    font-family: 'Barlow', sans-serif; font-size: 8px; font-weight: 700;
+    letter-spacing: 2px; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 2px;
+  }
+  #level-box { flex: 1; }
+  #xp-bar-wrap { width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+  #xp-bar { height: 100%; background: var(--accent2); border-radius: 3px; transition: width 0.15s; width: 0%; }
+  #combo-flash {
+    position: absolute; top: 82px; left: 50%; transform: translateX(-50%);
+    font-family: 'Bebas Neue', sans-serif; font-size: 30px;
+    color: var(--accent2); text-shadow: 0 0 16px var(--accent2);
+    pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    white-space: nowrap; letter-spacing: 2px;
+  }
+  #lvlup-banner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.6);
+    background: rgba(0,0,0,0.92); border: 2px solid var(--accent2);
+    border-radius: 16px; padding: 20px 36px; text-align: center;
+    pointer-events: none; opacity: 0; transition: opacity 0.25s, transform 0.25s; z-index: 10;
+  }
+  #lvlup-banner.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  #lvlup-banner .lv-title { font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 3px; color: var(--accent2); }
+  #lvlup-banner .lv-num { font-family: 'Bebas Neue', sans-serif; font-size: 54px; color: #fff; line-height: 1; }
+  #lvlup-banner .lv-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 4px; letter-spacing: 1px; }
+  #overlay {
+    position: absolute; inset: 0; border-radius: 18px;
+    background: rgba(0,0,0,0.84); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    backdrop-filter: blur(5px); z-index: 20;
+  }
+  #overlay h1 {
+    font-family: 'Bebas Neue', sans-serif; font-size: 62px; color: #fff;
+    letter-spacing: 5px; line-height: 1; text-shadow: 0 0 40px var(--accent);
+  }
+  #overlay .sub { font-size: 12px; color: rgba(255,255,255,0.45); letter-spacing: 2px; text-transform: uppercase; }
+  #overlay .score-big { font-family: 'Bebas Neue', sans-serif; font-size: 76px; color: var(--accent2); line-height: 1; }
+  #overlay .stat-row { display: flex; gap: 20px; }
+  #overlay .stat { text-align: center; }
+  #overlay .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; }
+  #overlay .stat-lbl { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 1px; text-transform: uppercase; }
+  .play-btn {
+    background: var(--accent); color: #fff; border: none;
+    font-family: 'Bebas Neue', sans-serif; font-size: 26px;
+    letter-spacing: 3px; padding: 12px 44px; border-radius: 50px; cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 0 4px 28px rgba(255,60,60,0.5); margin-top: 4px;
+  }
+  .play-btn:hover { transform: scale(1.05); }
+  .play-btn:active { transform: scale(0.96); }
+  #mobile-controls {
+    position: absolute; bottom: 12px; left: 12px; right: 12px;
+    display: flex; justify-content: space-between; pointer-events: none;
+  }
+  .ctrl-btn {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px; color: #fff; font-size: 24px;
+    width: 70px; height: 58px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; pointer-events: all; user-select: none; -webkit-user-select: none; transition: background 0.1s;
+  }
+  .ctrl-btn:active { background: rgba(255,60,60,0.3); }
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <canvas id="c" width="400" height="660"></canvas>
+  <div id="hud">
+    <div class="hud-box">
+      <span class="hud-label">Score</span>
+      <span id="score-display">0</span>
+    </div>
+    <div class="hud-box" id="level-box">
+      <span class="hud-label">Level</span>
+      <span id="level-display">0</span>
+      <div id="xp-bar-wrap"><div id="xp-bar"></div></div>
+    </div>
+    <div class="hud-box">
+      <span class="hud-label">Best</span>
+      <span id="best-display">0</span>
+    </div>
+  </div>
+  <div id="combo-flash"></div>
+  <div id="lvlup-banner">
+    <div class="lv-title">Level Up!</div>
+    <div class="lv-num" id="lvlup-num">1</div>
+    <div class="lv-sub" id="lvlup-sub"></div>
+  </div>
+  <div id="overlay">
+    <div class="sub">Dodge traffic · Collect coins · Reach Lv.100</div>
+    <h1>Road<br>Rush</h1>
+    <button class="play-btn" id="start-btn">START GAME</button>
+  </div>
+  <div id="mobile-controls">
+    <div class="ctrl-btn" id="btn-left">&#9664;</div>
+    <div class="ctrl-btn" id="btn-right">&#9654;</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 400, H = 660;
+const LANES = [72, 162, 252, 342];
+const CAR_W = 38, CAR_H = 64, COIN_R = 10;
+const MAX_LEVEL = 100;
+
+function xpForLevel(lv) { return 80 + lv * 22; }
+
+let state = 'menu';
+let score, best = 0, level, xp, combo, comboTimer;
+let player, traffic, coins, particles, roadY, speed, spawnTimer, coinTimer;
+let comboFlashTO, lvlupTO, animId, lastTs, crashFlash, totalCoins;
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  if (!keys[e.key]) { keys[e.key] = true; if (state === 'play') handleKey(e.key); }
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+document.getElementById('btn-left').addEventListener('pointerdown', () => { if (state==='play') movePlayer(-1); });
+document.getElementById('btn-right').addEventListener('pointerdown', () => { if (state==='play') movePlayer(1); });
+document.getElementById('start-btn').addEventListener('click', startGame);
+
+function handleKey(k) {
+  if (k === 'ArrowLeft') movePlayer(-1);
+  if (k === 'ArrowRight') movePlayer(1);
+}
+
+function movePlayer(dir) {
+  const li = LANES.indexOf(player.tx);
+  const ni = Math.max(0, Math.min(LANES.length - 1, li + dir));
+  player.tx = LANES[ni];
+}
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  score = 0; level = 0; xp = 0; combo = 0; comboTimer = 0; crashFlash = 0; totalCoins = 0;
+  speed = 3.5; spawnTimer = 0; coinTimer = 0;
+  player = { x: LANES[1], tx: LANES[1], y: H - 110 };
+  traffic = []; coins = []; particles = [];
+  roadY = 0; state = 'play'; lastTs = null;
+  if (animId) cancelAnimationFrame(animId);
+  updateHUD();
+  animId = requestAnimationFrame(loop);
+}
+
+function loop(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min((ts - lastTs) / 16.67, 3);
+  lastTs = ts;
+  if (state === 'play') update(dt);
+  draw();
+  if (state === 'play' || state === 'crashing') animId = requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  speed = 3.5 + level * 0.13 + score * 0.0004;
+  roadY = (roadY + speed * dt) % 60;
+  score += dt * (0.35 + level * 0.015);
+  xp += dt * (0.3 + level * 0.01);
+  checkLevelUp();
+  updateHUD();
+
+  if (crashFlash > 0) crashFlash -= dt;
+  player.x += (player.tx - player.x) * 0.2 * dt;
+
+  spawnTimer -= dt;
+  const minSpawn = Math.max(8, 28 - level * 0.2);
+  if (spawnTimer <= 0) { spawnTraffic(); spawnTimer = minSpawn + Math.random() * 22; }
+
+  coinTimer -= dt;
+  if (coinTimer <= 0) { spawnCoins(); coinTimer = 42 + 
